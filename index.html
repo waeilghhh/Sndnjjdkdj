@@ -1,69 +1,0 @@
-<!DOCTYPE html>
-<html lang="ar">
-<head>
-<meta charset="UTF-8">
-<title>🚍 تتبع الحافلة - سائق</title>
-</head>
-<body>
-<h2>🚍 إرسال موقع الحافلة</h2>
-<p id="status">انتظر تحديث الموقع...</p>
-<button id="retryBtn" style="display:none;">🔄 إعادة طلب الموقع</button>
-
-<!-- Firebase v9+ SDK -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyD6SOlFVTFs_goOPGlVzOb9puUCejNRASs",
-    authDomain: "bustraker-41746.firebaseapp.com",
-    databaseURL: "https://bustraker-41746-default-rtdb.firebaseio.com",
-    projectId: "bustraker-41746",
-    storageBucket: "bustraker-41746.appspot.com",
-    messagingSenderId: "827170090699",
-    appId: "1:827170090699:web:c23bb90c6ce8739435f54e",
-    measurementId: "G-FJ1LXTLL9Z"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  const statusDiv = document.getElementById("status");
-  const retryBtn = document.getElementById("retryBtn");
-
-  const busId = "BUS_001"; // رقم الحافلة
-
-  function startTracking() {
-    if (!navigator.geolocation) {
-      statusDiv.innerText = "❌ GPS غير مدعوم في هذا الجهاز";
-      return;
-    }
-
-    navigator.geolocation.watchPosition(pos => {
-      retryBtn.style.display = "none";
-      statusDiv.innerText = "📡 الموقع محدث: " + new Date().toLocaleTimeString();
-      set(ref(db, "buses/" + busId), {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        speed: pos.coords.speed || 0,
-        time: new Date().toLocaleTimeString()
-      });
-    }, err => {
-      if (err.code === err.PERMISSION_DENIED) {
-        statusDiv.innerText = "❌ تم رفض الوصول للموقع. اضغط الزر لإعادة الطلب.";
-        retryBtn.style.display = "inline-block";
-      } else {
-        statusDiv.innerText = "❌ خطأ في تحديد الموقع: " + err.message;
-      }
-    }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
-  }
-
-  retryBtn.addEventListener("click", () => {
-    statusDiv.innerText = "⏳ إعادة طلب الموقع...";
-    startTracking();
-  });
-
-  startTracking();
-</script>
-</body>
-</html>
