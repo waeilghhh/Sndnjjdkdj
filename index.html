@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>🚍 واجهة السائق</title>
+<style>
+body { font-family: sans-serif; margin:0; padding:0; background:#f5f5f5; text-align:center; }
+header { background:#2c3e50; color:white; padding:15px; font-size:20px; }
+section { margin:20px; }
+button { padding:10px 20px; font-size:16px; margin:5px; cursor:pointer; }
+#status { margin-top:10px; font-weight:bold; }
+#info { margin-top:10px; font-size:14px; }
+</style>
+</head>
+<body>
+<header>🚍 واجهة السائق</header>
+<section>
+  <p>الحافلة: <span id="busIdDisplay">BUS_001</span></p>
+  <button id="startBtn">▶️ بدء التتبع</button>
+  <button id="stopBtn">⏹ إيقاف التتبع</button>
+  <div id="status">⏳ لم يبدأ التتبع بعد</div>
+  <div id="info"></div>
+</section>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD6SOlFVTFs_goOPGlVzOb9puUCejNRASs",
+  authDomain: "bustraker-41746.firebaseapp.com",
+  databaseURL: "https://bustraker-41746-default-rtdb.firebaseio.com",
+  projectId: "bustraker-41746",
+  storageBucket: "bustraker-41746.appspot.com",
+  messagingSenderId: "827170090699",
+  appId: "1:827170090699:web:c23bb90c6ce8739435f54e",
+  measurementId: "G-FJ1LXTLL9Z"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const busId = "BUS_001";
+document.getElementById("busIdDisplay").innerText = busId;
+
+let watchId = null;
+const statusDiv = document.getElementById("status");
+const infoDiv = document.getElementById("info");
+
+let lastPos = null;
+let totalDistance = 0;
+
+function calculateDistance(lat1, lng1, lat2, lng2){
+    const R = 6371000; 
+    const dLat = (lat2 - lat1) * Math.PI/180;
+    const dLng = (lng2 - lng1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R*c;
+}
+
+function startTracking() {
+  if (!navigator.geolocation) { statusDiv.innerText="❌ GPS غير مدعوم"; return; }
+
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const speed = pos.coords.speed || 0;
+
+    if(lastPos){
+        const d = calculateDistance(lastPos.lat, lastPos.lng, pos.coords.latitude, pos.coords.longitude);
+        totalDistance += d;
+    }
+    lastPos = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+
+    const data = {
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      speed: speed,
+      distance: totalDistance,
+      time: new Date().toISOString()
+    };
+    set(ref(db, "buses/" + busId), data);
+
+    statusDiv.innerText = "📡 الموقع محدث: " + new Date().toLocaleTimeString();
+    infoDiv.innerHTML = `سرعة: ${speed.toFixed(1)} m/s<br>المسافة المقطوعة: ${totalDistance.toFixed(0)} م`;
+  }, err => {
+    if(err.code === err.PERMISSION_DENIED) statusDiv.innerText = "❌ تم رفض الوصول للموقع";
+    else statusDiv.innerText = "❌ خطأ في تحديد الموقع: " + err.message;
+  }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
+}
+
+function stopTracking() {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  statusDiv.innerText = "⏹ تم إيقاف التتبع";
+}
+
+document.getElementById("startBtn").addEventListener("click", startTracking);
+document.getElementById("stopBtn").addEventListener("click", stopTracking);
+</script>
+</body>
+</html>
